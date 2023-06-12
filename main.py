@@ -1,202 +1,136 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-from scipy.misc import electrocardiogram
-import plotly.graph_objects as go
-from scipy.misc import electrocardiogram
-import datetime
-import neurokit2 as nk  # Load the package
+import glob
+import os
+from streamlit_lottie import st_lottie
+from streamlit_lottie import st_lottie_spinner
+import requests
+from functions import file_upload, ecg_preprocessing
+from visualisation import get_figure
+from statistics_1 import get_stat_figure, get_stats, add_stats
+import neurokit2 as nk
+from streamlit import experimental_data_editor
+
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
 
 
+lottie_url_hello = "https://assets6.lottiefiles.com/private_files/lf30_ddqfreea.json"
+lottie_hello = load_lottieurl(lottie_url_hello)
+
+##### Streamlit settings #####
 
 st.set_page_config(
-     page_title="ECG Visualisation",
-     page_icon="🧊",
-     layout="wide",
-     initial_sidebar_state="collapsed",
-     menu_items={
-         'Get Help': 'https://www.extremelycoolapp.com/help',
-         'Report a bug': "https://www.extremelycoolapp.com/bug",
-         'About': "# This is a header. This is an *extremely* cool app!"
-     }
- )
-
-
-duration = 300
-freq=100
-
-simulated_ecg = nk.ecg_simulate(duration=duration, sampling_rate=freq, heart_rate=80)
-
-# Load data
-now = datetime.datetime.now()
-conversion = datetime.timedelta(seconds=duration)
-
-
-
-x = pd.date_range(start=now-conversion,end=now,periods=duration*freq).to_pydatetime().tolist()
-
-# Create figure
-fig = go.Figure()
-fig.add_trace(
-    go.Scatter(x=list(x), y=list(simulated_ecg)))
-
-# Set title
-fig.update_layout(
-    title_text="Time series with range slider and selectors",height=600
+    page_title="ECG Visualisation",
+    page_icon="🧊",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+    menu_items={
+        "Get Help": "https://www.extremelycoolapp.com/help",
+        "Report a bug": "https://www.extremelycoolapp.com/bug",
+        "About": "# This is a header. This is an *extremely* cool app!",
+    },
 )
 
 
-st.title('ECG Visualisation')
+# Sidebar title and animation
+a, b = st.columns([5, 1])
+a.markdown("## ECG VISUALISATION")
 
-with st.sidebar:
-    uploaded_files = st.file_uploader("Choose a CSV file", accept_multiple_files=True)
-    for uploaded_file in uploaded_files:
-        bytes_data = uploaded_file.read()
-        st.write("filename:", uploaded_file.name)
-        st.write(bytes_data)
-    ECG_visualisation = st.button('I agree')
+# Load animation using Lottie
+lottie_url_hello = "https://assets6.lottiefiles.com/private_files/lf30_ddqfreea.json"
+lottie_hello = load_lottieurl(lottie_url_hello)
 
+# Display animation in sidebar
+with b:
+    st_lottie(lottie_hello, key="hello", height=100, width=200, quality="high")
 
-
-with st.expander("Setings"):
-    with st.form("my_form"):
-        st.write("Change the settings here !")
-        coll0, coll1, coll2 = st.columns([1,2, 1],gap="small")
-        segmentation = coll0.selectbox(
-     'Segmentation :',
-     ('Seconds', 'Beats'))
-
-
-        frame_width = coll1.number_input('Window split', 0, 1000, value=30 ,key=1)
-     
-        freq = coll2.number_input('Frequency', 0, 10000,value=1000,key=2)
-        xmin= datetime.datetime(2015, 2, 17, 00, 00, 00) 
-        xmax = xmin + datetime.timedelta(days = frame_width)
-        def update_frame():  
-            xmax = xmin + datetime.timedelta(days = frame_width)
-            initial_range = [xmin, xmax ]
-            fig['layout']['xaxis'].update(range=initial_range)
-        # Every form must have a submit button.
-        submitted = st.form_submit_button("Submit")
-        if submitted:
-            update_frame()    
-            
-            
-
-            
-step = 200
-     
-
-col0, col1, col2, col3 = st.columns([1,9,1,3],gap="large")
+# Custom CSS to hide unnecessary elements
+hide_img_fs = """
+    <style>
+        button[title="View fullscreen"] {
+            visibility: hidden;
+        }
+        #MainMenu {
+            visibility: hidden;
+        }
+        footer {
+            visibility: hidden;
+        }
+        .bk-logo {
+            display: none !important;
+        }
+    </style>
+"""
+st.markdown(hide_img_fs, unsafe_allow_html=True)
 
 
+##### File Upload #####
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["file upload", "visualisation", "stats", "Export Stats"]
+)
 
 
-col1.subheader("Chart")
-
-col3.subheader("Statistics")
-
-if ECG_visualisation :
-    # Add range slider
-    fig.update_layout(
-        xaxis=dict(
-            rangeselector=dict(
-                bgcolor="#3C3C3C",
-                activecolor='#777777',
-                buttons=list([
-                    dict(count=1,
-                        label="1 s",
-                        step="second",
-                        stepmode="backward"),
-                    dict(count=30,
-                        label="30 s",
-                        step="second",
-                        stepmode="backward"),
-                    dict(count=1,
-                        label="1 min",
-                        step="minute",
-                        stepmode="backward"),
-                    dict(count=5,
-                        label="5 min",
-                        step="minute",
-                        stepmode="backward"),
-                    dict(count=1,
-                        label="Last munite",
-                        step="minute",
-                        stepmode="todate"),
-                    dict(step="all")
-                ])
-            ),
-            rangeslider=dict(
-                visible=True,
-            ),
-            type="date"
-        )
-    )
-        
-
-
-    xmin= datetime.datetime(2022, 7, 17, 00, 00, 00) 
-    xmax = xmin + datetime.timedelta(seconds = 30)
-
-    fig.update_layout(
-        updatemenus=[
-            dict(
-                type = "buttons",
-                direction = "left",
-                buttons=list([
-                    dict(
-                        
-                        args=[{"xaxis.range":["2022/07/01","2022/07/03"]}],
-                        label="previous",
-                        method="relayout"
-                    ),
-                ]),
-                pad={"r": 10, "t": 10},
-                showactive=True,
-                x=0,
-                xanchor="right",
-                y=-0.243,
-                yanchor="bottom"
-            ),
-            dict(
-                type = "buttons",
-                direction = "left",
-                buttons=list([
-                    dict(
-                        args=["xrange", "surface"],
-                        label="next",
-                        method="update"
-                    ),
-                ]),
-                pad={"r": 10, "t": 10},
-                showactive=True,
-                x=1.075,
-                xanchor="right",
-                y=-0.243,
-                yanchor="bottom"
-            ),
-        ]
-    )
-
-
-    col1.plotly_chart(fig,use_container_width=True,key=33)
-
-
-
-if col0.button("step backward"):
-    print("full_fig.layout.xaxis.range: ", fig.full_figure_for_development().layout.xaxis.range)
+with tab1:
+    st.markdown("# File Upload")
+    data, settings = file_upload()
+    st.write(data)
+    process = False
+    if len(data) > 0:
+         if st.button("Preprocess") :
+            dict_data = pd.DataFrame()
+            dict_data = ecg_preprocessing(data, settings["freq"])
+            process = True
     
-    xmin= fig.full_figure_for_development().layout.xaxis.range[0] + datetime.timedelta(seconds = step)
-    xmax = fig.full_figure_for_development().layout.xaxis.range[1] + datetime.timedelta(seconds = step)
-    initial_range = [xmin, xmax ]
-    fig['layout']['xaxis'].update(range=initial_range)
-    print("full_fig.layout.xaxis.range: ", fig.full_figure_for_development().layout.xaxis.range)
 
-if col2.button("step forward"):
-    xmin= xmin - datetime.timedelta(days = step)
-    xmax = xmax - datetime.timedelta(days = step)
-    initial_range = [xmin, xmax ]
-    fig['layout']['xaxis'].update(range=initial_range)
 
-st.write(st.session_state)
+with tab2:
+    st.markdown("# Visualisation")
+    if process:
+        data_frame = dict_data['ecg']
+        x = data_frame["x"]
+        y = data_frame["y"]
+        start = 0
+        end = settings["window_split"]
+        y_peaks = data_frame[data_frame["y_peaks"] != 0]["y_peaks"]
+        st.write(y_peaks)
+        window_split = settings["window_split"]
+        freq = settings["freq"]
+        segmentation = settings["segmentation"]
+        peak_index = data_frame[data_frame["peak_index"] != 0]["peak_index"]
+        st.write(peak_index)
+        layout = get_figure(x, y, start, end, y_peaks, window_split, freq, segmentation, peak_index)
+        st.bokeh_chart(layout, use_container_width=True)
+    #layout = get_figure(x, y, start, end, y_peaks, window_split, freq, segmentation, peak_index)
+    #st.bokeh_chart(layout, use_container_width=True)
+    # Add visualization code here
+with tab3:
+    st.markdown("# Statistics")
+    if process:
+        data_stats = dict_data['ecg']
+        freq = settings["freq"]
+        x = data_stats["x"]
+        y = data_stats["y"]
+        start = 0
+        end = settings["window_split"]
+        y_peaks = data_stats["y_peaks"]
+        window_split = settings["window_split"]
+        segmentation = settings["segmentation"]
+        peak_index = data_stats["peak_index"]
+        #st.write(peak_index)
+        #RR_time_intervale = 
+        table = get_stats(window_split, freq, peak_index)
+        # round to 2 decimal
+        #heart_rate = round(60 / RR_time_intervale.mean(), 2)
+        heart_rate = table.iloc[[4]].mean()
+        
+        stat_layout = get_stat_figure(x, y, start, end, y_peaks, window_split, freq, segmentation, peak_index, table)
+        st.bokeh_chart(stat_layout, use_container_width=True)
+        table_stat = add_stats(table)
+        edit = st.bokeh_chart(table_stat, use_container_width=True)
+with tab4:
+    st.markdown("# EXPORT STATS")
+    # Add code for exporting stats here
