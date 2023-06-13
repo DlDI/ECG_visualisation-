@@ -76,7 +76,7 @@ with tab1:
     st.markdown("# File Upload")
     data, settings = file_upload()
     with st.sidebar:
-        selected = st.radio("Select the type of data", data.keys())
+        selected = st.radio("Select the file to process", data.keys())
     st.write("You selected", selected)
     if selected != None :
         key = selected.split(".")[0]
