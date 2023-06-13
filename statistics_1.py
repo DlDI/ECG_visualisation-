@@ -16,7 +16,9 @@ from bokeh.models.tools import BoxZoomTool
 from bokeh.layouts import row, grid
 import streamlit as st
 import pandas as pd
+import numpy as np
 import random
+from hrvanalysis import remove_outliers, remove_ectopic_beats, interpolate_nan_values
 from bokeh.layouts import layout
 from hrvanalysis import get_time_domain_features, get_frequency_domain_features, get_geometrical_features, get_poincare_plot_features, get_nn_intervals
 
@@ -60,6 +62,15 @@ def get_stat_figure(x,y,start, end, y_peaks, window_split, freq, segmentation, p
     box_select = BoxSelectTool(dimensions="width")
     p.add_tools(box_select)
 
+    peaks_figure = p.scatter(
+        x=peak_index,
+        y=y_peaks,
+        size=5,
+        line_color=None,
+        fill_color="red",
+        name="peaks",
+        muted_alpha=0.2,
+    )
     select = figure(
         title="Click on the range to see it in detail (double click to reset)",
         plot_height=150,
@@ -88,7 +99,7 @@ def get_stat_figure(x,y,start, end, y_peaks, window_split, freq, segmentation, p
 
     add_select_segments(window_split, heart_rate_column, freq, select)
 
-    datafr= get_stats(window_split, freq, peak_index)
+    datafr= get_stats(window_split, freq, peak_index)[0]
 
     table = DataTable( columns=[TableColumn(field=Ci, title=Ci) for Ci in datafr.columns], source=ColumnDataSource(datafr), width=400, height=280, selectable=True, editable=True, reorderable=True, index_position=None, sizing_mode="stretch_width",)
     
@@ -98,18 +109,57 @@ def get_stat_figure(x,y,start, end, y_peaks, window_split, freq, segmentation, p
 
     return layout
 
+def get_nn_interval(rrinterval):
+    # This remove outliers from signal
+    rr_intervals_without_outliers = remove_outliers(
+        rr_intervals=rrinterval, low_rri=300, high_rri=2000
+    )
+    # This replace outliers nan values with linear interpolation
+    interpolated_rr_intervals = interpolate_nan_values(
+        rr_intervals=rr_intervals_without_outliers, interpolation_method="linear"
+    )
+
+    # This remove ectopic beats from signal
+    nn_intervals_list = remove_ectopic_beats(
+        rr_intervals=interpolated_rr_intervals, method="malik"
+    )
+    # This replace ectopic beats nan values with linear interpolation
+    # interpolated_nn_intervals = interpolate_nan_values(rr_intervals=nn_intervals_list)
+    return nn_intervals_list
+
 def get_stats(window_split, freq, peak_index):
     peak_index = peak_index[peak_index > 0].index.to_frame()
-    stat_df = pd.DataFrame(columns=[f"RR_interval_{i}" for i in range(0, len(peak_index), window_split)], index=["mean", "std", "min", "max", "heart_rate"])
+    stat_df = pd.DataFrame(columns=[f"Segment_{i}" for i in range(0, len(peak_index), window_split)], index=["RR_mean", "RR_std", "RR_min", "RR_max", "heart_rate"])
+    time_domain_df = pd.DataFrame(columns=[f"Segment_{i}" for i in range(0, len(peak_index), window_split)], index=["mean_nni", "sdnn", "sdsd", "nni_50", "pnni_50", "nni_20", "pnni_20", "rmssd", "median_nni", "range_nni", "cvsd", "cvnni", "mean_hr", "max_hr", "min_hr", "std_hr"])
+    geometrical_df = pd.DataFrame(columns=[f"Segment_{i}" for i in range(0, len(peak_index), window_split)], index=["triangular_index"])
+    frequency_domain_df = pd.DataFrame(columns=[f"Segment_{i}" for i in range(0, len(peak_index), window_split)], index=["total_power", "vlf", "lf", "hf", "lf_hf_ratio", "lfnu", "hfnu"])
+    non_linear_df = pd.DataFrame(columns=[f"Segment_{i}" for i in range(0, len(peak_index), window_split)], index=["sd1", "sd2", "ratio_sd2_sd1"])
     for i in range(0, len(peak_index), window_split):
         window_peak_index = peak_index[i:i + window_split]
         RR_interval = window_peak_index.diff()
         RR_time_intervale = RR_interval / freq
         heart_rate = round(60 / RR_time_intervale.mean(), 2)
+        # rr_interval to list
+        arr =  RR_interval.values.flatten()
+        arr = arr[~np.isnan(arr)]
+        print(arr)
+        print(type(arr))
+        nninterval = get_nn_interval(arr)
+        print(nninterval)
+        time_domain_features = get_time_domain_features(nninterval)
+        geometrical_features = get_geometrical_features(nninterval)
+        frequency_domain_features = pd.DataFrame()
+        poincare_plot_features = get_poincare_plot_features(nninterval)
+
+        # add dict to dataframe
+        time_domain_df[f"Segment_{i}"] = pd.Series(time_domain_features, index=["mean_nni", "sdnn", "sdsd", "nni_50", "pnni_50", "nni_20", "pnni_20", "rmssd", "median_nni", "range_nni", "cvsd", "cvnni", "mean_hr", "max_hr", "min_hr", "std_hr"])
+        geometrical_df[f"Segment_{i}"] = pd.Series(geometrical_features, index=["triangular_index"])
+        #frequency_domain_df[f"Segment_{i}"] = pd.Series(frequency_domain_features, index=["total_power", "vlf", "lf", "hf", "lf_hf_ratio", "lfnu", "hfnu"])
+        non_linear_df[f"Segment_{i}"] = pd.Series(poincare_plot_features, index=["sd1", "sd2", "ratio_sd2_sd1"])
         
-        stat_df[f"Segment_{i}"] = pd.Series([ RR_interval.mean(), RR_interval.std(), RR_interval.min(), RR_interval.max(), heart_rate], index=["mean", "std", "min", "max", "heart_rate"])
+        stat_df[f"Segment_{i}"] = pd.Series([ RR_interval.mean(), RR_interval.std(), RR_interval.min(), RR_interval.max(), heart_rate], index=["RR_mean", "RR_std", "RR_min", "RR_max", "heart_rate"])
                 
-    return stat_df
+    return stat_df, time_domain_df, geometrical_df, frequency_domain_df, non_linear_df
 
 def get_color_annotation(heart_rate):
     heart_rate = float(heart_rate) + random.uniform(-5, 30)
@@ -179,18 +229,32 @@ def display_event (freq, wind_split, ls, fig):
 
 def add_stats(table):
     T_table = table.T
+    # add dyagnostic column
+    list_diagnostic = []
+    for i in range(len(T_table)):
+        heart_rate = random.uniform(50, 120)
+        if heart_rate < 60:
+            list_diagnostic.append("bradycardia")
+        elif heart_rate > 75 and heart_rate < 80:
+            list_diagnostic.append("normal")
+        elif heart_rate > 100:
+            list_diagnostic.append("tachycardia")
+        else:
+            list_diagnostic.append("normal")
+    T_table["Diagnostic"] = list_diagnostic
     source = ColumnDataSource(T_table)
     T_table.dropna()
 
     # Define editable columns for the DataTable
     columns = [
-        TableColumn(field='mean', title='mean', editor=StringEditor(), formatter=NumberFormatter(format='0,00')),
-        TableColumn(field='std', title='std', editor=NumberEditor(), formatter=NumberFormatter(format='0,00')),
-        TableColumn(field='min', title='min', editor=NumberEditor(), formatter=NumberFormatter(format='0,00')),
-        TableColumn(field='max', title='max', editor=NumberEditor(), formatter=NumberFormatter(format='0,00')),
+        TableColumn(field='RR_mean', title='RR_mean', editor=StringEditor(), formatter=NumberFormatter(format='0,00')),
+        TableColumn(field='RR_std', title='RR_std', editor=NumberEditor(), formatter=NumberFormatter(format='0,00')),
+        TableColumn(field='RR_min', title='RR_min', editor=NumberEditor(), formatter=NumberFormatter(format='0,00')),
+        TableColumn(field='RR_max', title='RR_max', editor=NumberEditor(), formatter=NumberFormatter(format='0,00')),
         TableColumn(field='heart_rate', title='heart_rate', editor=NumberEditor(), formatter=NumberFormatter(format='0,00')),
+        TableColumn(field='Diagnostic', title='Diagnostic', editor=StringEditor(), formatter=StringFormatter())
     ]
     data_table = DataTable(source=source, columns=columns, editable=True, index_position=-1)
     # Create a layout for the table
-    tablee = layout([[data_table]])
+    tablee = layout([[data_table]], sizing_mode='stretch_width')
     return tablee
