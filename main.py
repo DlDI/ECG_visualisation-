@@ -76,7 +76,7 @@ with tab1:
     st.markdown("# File Upload")
     data, settings = file_upload()
     with st.sidebar:
-        selected = st.radio("Select the file to process", data.keys())
+        selected = st.radio("Select the type of data", data.keys())
     st.write("You selected", selected)
     if selected != None :
         key = selected.split(".")[0]
@@ -102,6 +102,7 @@ with tab2:
         freq = settings["freq"]
         segmentation = settings["segmentation"]
         peak_index = data_frame[data_frame["peak_index"] != 0]["peak_index"]
+        st.write(peak_index)
         layout = get_figure(x, y, start, end, y_peaks, window_split, freq, segmentation, peak_index)
         st.bokeh_chart(layout, use_container_width=True)
     #layout = get_figure(x, y, start, end, y_peaks, window_split, freq, segmentation, peak_index)
