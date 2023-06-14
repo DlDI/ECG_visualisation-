@@ -102,7 +102,6 @@ with tab2:
         freq = settings["freq"]
         segmentation = settings["segmentation"]
         peak_index = data_frame[data_frame["peak_index"] != 0]["peak_index"]
-        st.write(peak_index)
         layout = get_figure(x, y, start, end, y_peaks, window_split, freq, segmentation, peak_index)
         st.bokeh_chart(layout, use_container_width=True)
     #layout = get_figure(x, y, start, end, y_peaks, window_split, freq, segmentation, peak_index)
