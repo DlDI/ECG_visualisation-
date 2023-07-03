@@ -6,7 +6,7 @@ import os
 import neurokit2 as nk
 import numpy as np
 
-@st.cache_data 
+@st.cache_resource
 def file_upload():
     st.markdown("# Open files 📂")
     with st.expander("Settings"):
