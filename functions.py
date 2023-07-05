@@ -6,6 +6,7 @@ import os
 import neurokit2 as nk
 import numpy as np
 
+
 def file_upload():
     st.markdown("# Open files 📂")
     with st.expander("Settings"):
@@ -23,9 +24,7 @@ def file_upload():
             if submitted and step_by <= window_split:
                 st.write("Parameters are taken")
                 step_by = int(step_by)
-                st.write(window_split)
                 window_split = int(window_split)
-                st.write(window_split)
             elif submitted and step_by > window_split:
                 st.warning("Step_by parameter can't be greater than window split")
 
@@ -75,7 +74,7 @@ def peak_detection(ecg: pd.DataFrame, freq: int):
     
     # remoee the 0 values
     #peak_y = [i if i != 0 else None for i in peaky ]
-    return pd.DataFrame(peak_index, columns=['peak_index']),pd.DataFrame(peak_y, columns=['peak_y']) 
+    return pd.DataFrame(peak_index, columns=['peak_index']),pd.DataFrame(peak_y, columns=['peak_y']) , peaks
 
 
 def global_stats(ecg: pd.DataFrame):
@@ -99,7 +98,7 @@ def ecg_preprocessing(raw_data: dict, freq: int):
         print("key is: ", key)  
         print("value is: ", value)
         df['y'] = value   
-        df['peak_index'], df['y_peaks'] = peak_detection(value, freq)
+        df['peak_index'], df['y_peaks'], df['peaks'] = peak_detection(value, freq)
         df['x'] = range(0, len(value))
 
         dict_info[key] = df
