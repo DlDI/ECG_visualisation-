@@ -162,7 +162,7 @@ def get_stats(window_split, freq, peak_index):
     return stat_df, time_domain_df, geometrical_df, frequency_domain_df, non_linear_df
 
 def get_color_annotation(heart_rate):
-    heart_rate = float(heart_rate) + random.uniform(-5, 30)
+    heart_rate = float(heart_rate)
     if heart_rate < 60:
         return "purple"
     elif heart_rate > 75 and heart_rate < 80:
@@ -181,7 +181,7 @@ def add_select_segments(window_split, heart_rate_column, freq, select_stat):
 
         List_segmentations.append(startt)
         # test heart rate column with wide range of values
-        tst_heart_rate_color = random.choices(["purple", "green", "red", "blue"], weights=(1, 15, 2, 5), k=1)
+        tst_heart_rate_color = random.choices(["purple", "white", "red", "blue"], weights=(1, 15, 2, 5), k=1)
         a = get_color_annotation(heart_rate_column[k])
         b1 = BoxAnnotation(
             left=startt,
@@ -229,10 +229,11 @@ def display_event (freq, wind_split, ls, fig):
 
 def add_stats(table):
     T_table = table.T
+    hr = table.iloc[[4]].values.flatten().tolist()
     # add dyagnostic column
     list_diagnostic = []
     for i in range(len(T_table)):
-        heart_rate = random.uniform(50, 120)
+        heart_rate = hr[i].values.flatten()
         if heart_rate < 60:
             list_diagnostic.append("bradycardia")
         elif heart_rate > 75 and heart_rate < 80:

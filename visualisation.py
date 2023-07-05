@@ -152,17 +152,17 @@ def get_figure(x, y, start, end, y_peaks, window_split, freq, segmentation, peak
                     if (x_range.start - step*freq < 0) {
                         x_range.start = 0;
                         x_range.end = step*freq;
-                        }
+                    }
                     else {
                         x_range.start = x_range.start - step*freq;
                         x_range.end = x_range.end - step*freq;
                     }
                 }
                 else {
-                    if (index_1 - step < 0) {
-                        x_range.start = peak[0];
-                        x_range.start = peak[step];
-                        }
+                    if (x_range.start - step*freq < 0) {
+                        x_range.start = 0;
+                        x_range.end = step*freq;
+                    }
                     else { 
                         x_range.start = peak[index_1 - step];
                         x_range.end = peak[index_2 - step];
@@ -201,17 +201,17 @@ def get_figure(x, y, start, end, y_peaks, window_split, freq, segmentation, peak
             if (x_range.end + step*freq > end) {
                 x_range.end = end;
                 x_range.start = end - step*freq;
-                }
+            }
             else {
                 x_range.start += step*freq;
                 x_range.end += step*freq;
             }
         }
         else {
-            if (index_1 + step > peak.length) {
-                x_range.end = peak[-1];
-                x_range.start = peak[-step];
-                }
+            if (x_range.end + step*freq > end) {
+                x_range.end = end;
+                x_range.start = end - step*freq;
+            }
             else { 
                 x_range.start = peak[index_1 + step];
                 x_range.end = peak[index_2 + step];

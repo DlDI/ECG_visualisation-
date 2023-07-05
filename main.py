@@ -11,8 +11,8 @@ from statistics_1 import get_stat_figure, get_stats, add_stats
 import neurokit2 as nk
 from streamlit import experimental_data_editor
 import numpy as np
-import numpy 
-
+import neurokit2 as nk 
+import matplotlib.pyplot as plt
 
 def load_lottieurl(url: str):
     r = requests.get(url)
@@ -73,10 +73,9 @@ tab1, tab2, tab3, tab4 = st.tabs(
 
 
 with tab1:
-    st.markdown("# File Upload")
     data, settings = file_upload()
     with st.sidebar:
-        selected = st.radio("Select the type of data", data.keys())
+        selected = st.radio("Select the file to visualize      ", data.keys())
     st.write("You selected", selected)
     if selected != None :
         key = selected.split(".")[0]
@@ -120,7 +119,7 @@ with tab3:
         window_split = settings["window_split"]
         segmentation = settings["segmentation"]
         peak_index = data_stats["peak_index"]
-
+        peaks = data_stats["peaks"]
         table, time_domain_df, geometrical_df, frequency_domain_df, non_linear_df = get_stats(window_split, freq, peak_index)
         hr = round(table.iloc[[4]].values.mean())
         heart_rate = str(hr) + " BPM"# np.nanmean(table.iloc[[4]].values )
@@ -128,6 +127,24 @@ with tab3:
         st.metric(label="Heart Rate", value=str_heart_rate)
         stat_layout = get_stat_figure(x, y, start, end, y_peaks, window_split, freq, segmentation, peak_index, table)
         st.bokeh_chart(stat_layout, use_container_width=True)
+        hrv_indices_fre = nk.hrv_frequency(peaks, sampling_rate=freq, show=True)
+        freq_hrv_plot = plt.gcf()
+        hrv_indices_time = nk.hrv_time(peaks, sampling_rate=freq, show=True)
+        # Show the plot
+        time_hrv_plot = plt.gcf() # gcf stands for 'get current figure'
+
+        hrv_indices_nonlinear = nk.hrv_nonlinear(peaks, sampling_rate=freq, show=True)
+        poincare_hrv_plot = plt.gcf()  # gcf stands for 'get current figure'
+
+        c_a, c_b = st.columns([2,3],gap="small")
+        with c_a:
+            st.write("Frequency and Time Domain stats")
+            st.pyplot(freq_hrv_plot)
+            st.pyplot(time_hrv_plot)
+        
+        with c_b:
+            st.write("Non Linear Domain stats")
+            st.pyplot(poincare_hrv_plot)
         table_stat = add_stats(table)
         edit = st.bokeh_chart(table_stat, use_container_width=True)
         st.write("Time Domain stats")
@@ -154,6 +171,13 @@ with tab4:
             time_domain_df.to_excel(writer, sheet_name='Time Domain')
             geometrical_df.to_excel(writer, sheet_name='Geometrical Domain')
             non_linear_df.to_excel(writer, sheet_name='Non Linear Domain')
+            # Create a summary plot for RR intervals using the provided function
+            # Process the ECG signal to get R-peaks
+            # Compute HRV indices and plot
+            
+            
+
+
         st.write("Exported to stats.xlsx")
 
         with open('stats.xlsx', 'rb') as f:
